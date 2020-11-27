@@ -14,7 +14,7 @@ from tokenizers import BertWordPieceTokenizer
 from torch import Tensor
 from torch.nn.modules import CrossEntropyLoss, BCEWithLogitsLoss
 from torch.utils.data import DataLoader
-from transformers import AdamW
+from transformers import AdamW, BertConfig
 from torch.optim import SGD
 
 from datasets.mrc_ner_dataset import MRCNERDataset
@@ -51,13 +51,15 @@ class BertLabeling(pl.LightningModule):
         self.bert_dir = args.bert_config_dir
         self.data_dir = self.args.data_dir
 
-        bert_config = BertQueryNerConfig.from_pretrained(args.bert_config_dir,
-                                                         hidden_dropout_prob=args.bert_dropout,
-                                                         attention_probs_dropout_prob=args.bert_dropout,
-                                                         mrc_dropout=args.mrc_dropout)
+        # bert_config = BertQueryNerConfig.from_pretrained(args.bert_config_dir,
+        #                                                  hidden_dropout_prob=args.bert_dropout,
+        #                                                  attention_probs_dropout_prob=args.bert_dropout,
+        #                                                  mrc_dropout=args.mrc_dropout)
+        bert_config = BertConfig.from_pretrained(args.model_name)
 
-        self.model = BertQueryNER.from_pretrained(args.bert_config_dir,
-                                                  config=bert_config)
+        # self.model = BertQueryNER.from_pretrained(args.bert_config_dir,
+        #                                           config=bert_config)
+        self.model = BertQueryNER.from_pretrained(args.model_name)
         # logging.info(str(self.model))
         logging.info(str(args.__dict__ if isinstance(args, argparse.ArgumentParser) else args))
         # self.ce_loss = CrossEntropyLoss(reduction="none")
@@ -101,6 +103,8 @@ class BertLabeling(pl.LightningModule):
                             help="smooth value of dice loss")
         parser.add_argument("--final_div_factor", type=float, default=1e4,
                             help="final div factor of linear decay scheduler")
+        parser.add_argument("--model_name", type=str, default="bert-base-uncased",
+                            help="name of the bert model")
         return parser
 
     def configure_optimizers(self):
@@ -292,7 +296,7 @@ class BertLabeling(pl.LightningModule):
         json_path = os.path.join(self.data_dir, f"mrc-ner.{prefix}")
         vocab_path = os.path.join(self.bert_dir, "vocab.txt")
         dataset = MRCNERDataset(json_path=json_path,
-                                tokenizer=BertWordPieceTokenizer(vocab_file=vocab_path),
+                                tokenizer=BertWordPieceTokenizer(vocab_path),
                                 max_length=self.args.max_length,
                                 is_chinese=self.chinese,
                                 pad_to_maxlen=False
@@ -329,7 +333,8 @@ def run_dataloader():
 
     model = BertLabeling(args)
     from tokenizers import BertWordPieceTokenizer
-    tokenizer = BertWordPieceTokenizer(os.path.join(args.bert_config_dir, "vocab.txt"))
+    # tokenizer = BertWordPieceTokenizer(os.path.join(args.bert_config_dir, "vocab.txt"))
+    tokenizer = BertWordPieceTokenizer('bert-base-uncased')
 
     loader = model.get_dataloader("dev", limit=1000)
     for d in loader:
